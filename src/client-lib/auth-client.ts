@@ -2,9 +2,10 @@ import { organizationClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
 export const authClient = createAuthClient({
-  baseURL: "https://vybe.build",
+  baseURL: typeof window !== "undefined" ? window.location.origin : undefined,
   plugins: [organizationClient()],
 });
+
 
 export function getAuthClient() {
   if (process.env.NEXT_PUBLIC_DEV_USER_NAME) {

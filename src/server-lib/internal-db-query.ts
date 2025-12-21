@@ -1,10 +1,10 @@
-import { internalDbClient } from "./internal-db";
+import { prisma } from "./prisma";
 
 type SqlPrimitive = string | number | boolean | Date | null;
 type SqlParam = SqlPrimitive | SqlPrimitive[] | Record<string, unknown>;
 
 /**
- * Query the app's internal Postgres database via the Vybe API
+ * Query the app's internal Postgres database via Prisma
  * @param sql - The SQL query to execute, using $1, $2, etc. for parameters
  * @param params - The parameters to pass to the query (primitives, arrays for ANY clauses, or objects for JSONB)
  * @returns The result rows from the query
@@ -28,6 +28,8 @@ type SqlParam = SqlPrimitive | SqlPrimitive[] | Record<string, unknown>;
  * );
  */
 export async function queryInternalDatabase(sql: string, params: SqlParam[] = []) {
-  const response = await internalDbClient.post<Record<string, unknown>[]>("/query", { sql, params });
-  return response.data;
+  // Replace $1, $2, etc. with ? for prisma.$queryRawUnsafe if using postgres
+  // Actually postgres supports $1, $2 so we can keep them if we use raw.
+  // But prisma.$queryRawUnsafe takes the string as is.
+  return prisma.$queryRawUnsafe<Record<string, unknown>[]>(sql, ...params);
 }

@@ -31,7 +31,12 @@ export async function POST(request: NextRequest) {
     // Determine Ollama URL
     const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 
-    // Call Ollama chat API
+    // Call Ollama chat API using a separate controller for timeout if using fetch
+    // or just use a longer timeout. Given we have axios available in other routes,
+    // let's ensure this fetch doesn't hang.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes
+
     const ollamaResponse = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -45,7 +50,10 @@ export async function POST(request: NextRequest) {
           num_predict: 2048,
         },
       }),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+
 
     if (!ollamaResponse.ok) {
       // Fallback to built-in AI if Ollama is not available
@@ -70,11 +78,11 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Agent API error:', error);
-    
+
     // Return a helpful fallback response
     const body = await request.clone().json().catch(() => ({}));
     const agent = AI_AGENTS.find((a) => a.id === body.agentId);
-    
+
     return NextResponse.json({
       response: generateFallbackResponse(body.agentId || 'default', body.message || ''),
       model: 'fallback',
@@ -87,7 +95,7 @@ export async function POST(request: NextRequest) {
 
 function generateFallbackResponse(agentId: string, message: string): string {
   const lowercaseMessage = message.toLowerCase();
-  
+
   switch (agentId) {
     case 'web-dev-agent':
       if (lowercaseMessage.includes('react') || lowercaseMessage.includes('component')) {

@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 
 // Ollama API endpoint - defaults to localhost but can be configured via env
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+
+// Create an axios instance with a long timeout for Ollama
+const ollama = axios.create({
+  baseURL: OLLAMA_BASE_URL,
+  timeout: 300000, // 5 minutes timeout for model loading and generation
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,9 +28,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error) {
-    console.error('Ollama API error:', error);
+    console.error('Ollama API Root Error:', error);
     return NextResponse.json(
-      { error: 'Failed to communicate with Ollama', details: String(error) },
+      {
+        error: 'Failed to communicate with Ollama',
+        details: String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      },
       { status: 500 }
     );
   }
@@ -37,10 +48,8 @@ async function handleGenerate(params: {
 }) {
   const { model, prompt, system, options } = params;
 
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  try {
+    const response = await ollama.post('/api/generate', {
       model: model || 'mistral',
       prompt,
       system,
@@ -50,19 +59,19 @@ async function handleGenerate(params: {
         top_p: 0.9,
         ...options,
       },
-    }),
-  });
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
+    return NextResponse.json(response.data);
+  } catch (error: any) {
+    console.error('Ollama generation error:', error.message, error.response?.data);
     return NextResponse.json(
-      { error: 'Ollama generation failed', details: errorText },
-      { status: response.status }
+      {
+        error: 'Ollama generation failed',
+        details: error.response?.data || error.message
+      },
+      { status: error.response?.status || 500 }
     );
   }
-
-  const data = await response.json();
-  return NextResponse.json(data);
 }
 
 async function handleChat(params: {
@@ -72,10 +81,8 @@ async function handleChat(params: {
 }) {
   const { model, messages, options } = params;
 
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  try {
+    const response = await ollama.post('/api/chat', {
       model: model || 'mistral',
       messages,
       stream: false,
@@ -84,83 +91,62 @@ async function handleChat(params: {
         top_p: 0.9,
         ...options,
       },
-    }),
-  });
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
+    return NextResponse.json(response.data);
+  } catch (error: any) {
+    console.error('Ollama chat error:', error.message, error.response?.data);
     return NextResponse.json(
-      { error: 'Ollama chat failed', details: errorText },
-      { status: response.status }
+      {
+        error: 'Ollama chat failed',
+        details: error.response?.data || error.message
+      },
+      { status: error.response?.status || 500 }
     );
   }
-
-  const data = await response.json();
-  return NextResponse.json(data);
 }
 
 async function handleListModels() {
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
-    method: 'GET',
-  });
-
-  if (!response.ok) {
+  try {
+    const response = await ollama.get('/api/tags');
+    return NextResponse.json(response.data);
+  } catch (error: any) {
     return NextResponse.json(
-      { error: 'Failed to list models' },
-      { status: response.status }
+      { error: 'Failed to list models', details: error.message },
+      { status: error.response?.status || 500 }
     );
   }
-
-  const data = await response.json();
-  return NextResponse.json(data);
 }
 
 async function handlePullModel(params: { name: string }) {
   const { name } = params;
 
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/pull`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, stream: false }),
-  });
-
-  if (!response.ok) {
+  try {
+    const response = await ollama.post('/api/pull', { name, stream: false });
+    return NextResponse.json(response.data);
+  } catch (error: any) {
     return NextResponse.json(
-      { error: 'Failed to pull model' },
-      { status: response.status }
+      { error: 'Failed to pull model', details: error.message },
+      { status: error.response?.status || 500 }
     );
   }
-
-  const data = await response.json();
-  return NextResponse.json(data);
 }
 
 // Health check endpoint
 export async function GET() {
   try {
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
-      method: 'GET',
+    const response = await ollama.get('/api/tags');
+    return NextResponse.json({
+      status: 'connected',
+      ollamaUrl: OLLAMA_BASE_URL,
+      models: response.data.models || [],
     });
-
-    if (response.ok) {
-      const data = await response.json();
-      return NextResponse.json({
-        status: 'connected',
-        ollamaUrl: OLLAMA_BASE_URL,
-        models: data.models || [],
-      });
-    } else {
-      return NextResponse.json({
-        status: 'disconnected',
-        ollamaUrl: OLLAMA_BASE_URL,
-        error: 'Cannot reach Ollama server',
-      });
-    }
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json({
       status: 'disconnected',
       ollamaUrl: OLLAMA_BASE_URL,
-      error: String(error),
+      error: error.message,
     });
   }
 }
+

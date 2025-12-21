@@ -12,9 +12,14 @@ import { generateText } from "@/client-lib/built-in-integrations/ai";
 import { useServices } from "@/client-lib/api-client";
 import type { ChatMessage } from "@/shared/models/types";
 
-const SYSTEM_PROMPT = `You are an AI assistant for AgentsFlowAI, an AI-powered business automation platform. You help potential customers:
+const getSystemPrompt = (services: any[] = []) => {
+  const servicesList = services
+    .map(s => `- ${s.name} ($${s.price}): ${s.description}`)
+    .join('\n');
 
-1. Understand our services (Starter $999, Growth $2499, Enterprise $4999)
+  return `You are an AI assistant for AgentsFlowAI, an AI-powered business automation platform. You help potential customers:
+
+1. Understand our services
 2. Get recommendations based on their business needs
 3. Answer questions about digital marketing, automation, and AI solutions
 4. Qualify leads by understanding their budget, timeline, and goals
@@ -22,10 +27,10 @@ const SYSTEM_PROMPT = `You are an AI assistant for AgentsFlowAI, an AI-powered b
 
 Be helpful, professional, and concise. When appropriate, recommend specific service packages based on the customer's needs.
 
-Services:
+${servicesList ? `Current Services:\n${servicesList}` : `General Services:
 - Starter Package ($999): Perfect for small businesses - includes social media setup, basic SEO audit, 1 month support, email template
 - Growth Package ($2499): For scaling businesses - includes full SEO optimization, PPC campaign management, content strategy, 3 months support, monthly reporting
-- Enterprise Package ($4999): Complete digital transformation - includes dedicated account manager, custom integrations, advanced analytics, 24/7 support, quarterly strategy reviews, multi-channel campaigns
+- Enterprise Package ($4999): Complete digital transformation - includes dedicated account manager, custom integrations, advanced analytics, 24/7 support, quarterly strategy reviews, multi-channel campaigns`}
 
 Always try to understand the customer's:
 - Business type and size
@@ -33,8 +38,10 @@ Always try to understand the customer's:
 - Budget range
 - Timeline for implementation
 - Goals they want to achieve`;
+};
 
 export default function ChatPage() {
+  const { data: services } = useServices();
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
@@ -45,7 +52,6 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { data: services } = useServices();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -55,17 +61,23 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleSend = async (customMessage?: string) => {
+    const messageText = customMessage || input.trim();
+    if (!messageText || isLoading) return;
 
     const userMessage: ChatMessage = {
       role: "user",
-      content: input.trim(),
+      content: messageText,
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
+    if (!customMessage) {
+      setMessages((prev) => [...prev, userMessage]);
+      setInput("");
+    } else {
+      setMessages((prev) => [...prev, userMessage]);
+    }
+
     setIsLoading(true);
 
     try {
@@ -73,7 +85,8 @@ export default function ChatPage() {
         .map((m) => `${m.role === "user" ? "Customer" : "Assistant"}: ${m.content}`)
         .join("\n");
 
-      const prompt = `${SYSTEM_PROMPT}
+      const systemPrompt = getSystemPrompt(services);
+      const prompt = `${systemPrompt}
 
 Previous conversation:
 ${conversationHistory}
@@ -91,11 +104,13 @@ Provide a helpful, concise response as the AI assistant:`;
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating response:", error);
       const errorMessage: ChatMessage = {
         role: "assistant",
-        content: "I apologize, but I encountered an issue processing your request. Please try again or contact our team directly for assistance.",
+        content: error.message?.includes("timed out")
+          ? "I'm sorry, the AI is taking a bit longer to respond (model loading). Please try again in a few seconds."
+          : "I apologize, but I encountered an issue processing your request. Please try again or contact our team directly for assistance.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -103,6 +118,7 @@ Provide a helpful, concise response as the AI assistant:`;
       setIsLoading(false);
     }
   };
+
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -169,9 +185,8 @@ Provide a helpful, concise response as the AI assistant:`;
               {messages.map((message, index) => (
                 <div
                   key={index}
-                  className={`flex gap-3 ${
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  }`}
+                  className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"
+                    }`}
                 >
                   {message.role === "assistant" && (
                     <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -179,11 +194,10 @@ Provide a helpful, concise response as the AI assistant:`;
                     </div>
                   )}
                   <div
-                    className={`max-w-[80%] rounded-lg p-4 ${
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    }`}
+                    className={`max-w-[80%] rounded-lg p-4 ${message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted"
+                      }`}
                   >
                     <p className="whitespace-pre-wrap text-sm">{message.content}</p>
                     <p className="text-xs mt-2 opacity-60">
@@ -223,11 +237,12 @@ Provide a helpful, concise response as the AI assistant:`;
                     key={question}
                     variant="outline"
                     size="sm"
-                    onClick={() => setInput(question)}
+                    onClick={() => handleSend(question)}
                     className="text-xs"
                   >
                     {question}
                   </Button>
+
                 ))}
               </div>
             </div>

@@ -1,5 +1,6 @@
+import axios from "axios";
 import { type JSONSchema7 } from "json-schema";
-import { integrationsClient, showFakeData } from "@/client-lib/shared";
+import { showFakeData } from "@/client-lib/shared";
 
 type ReasoningEffort = "low" | "medium" | "high";
 type ModelProvider = "openai" | "google";
@@ -13,26 +14,33 @@ type ModelProvider = "openai" | "google";
  * 'openai' - to set the model to gpt-5 or equivalent
  * 'google' - to set the model to gemini-2.5-pro or equivalent
  */
-export function generateText(
+export async function generateText(
   prompt: string,
   enableWebSearch = false,
   enableDeepResearch = false,
   reasoningEffort: ReasoningEffort = "low",
   modelProvider: ModelProvider = "openai",
 ) {
-  if (showFakeData) {
-    return Promise.resolve("Generated text will be displayed here (unavailable in development mode)");
-  }
-  return integrationsClient
-    .post<string>("/integrations/ai/generate-text", {
+  try {
+    const response = await axios.post("/api/ai/ollama", {
+      action: "generate",
+      model: "llama3.1:8b",
       prompt,
-      enableWebSearch,
-      enableDeepResearch,
-      reasoningEffort,
-      modelProvider,
-    })
-    .then((res) => res.data);
+    }, {
+      timeout: 300000, // 5 minutes client-side timeout
+    });
+
+    return response.data.response;
+  } catch (error: any) {
+    console.error("Error in generateText:", error.message);
+    if (error.code === 'ECONNABORTED') {
+      throw new Error("AI response timed out. The model might be too slow or loading.");
+    }
+    throw error;
+  }
 }
+
+
 
 /**
  * Generate an object using the AI API
@@ -51,27 +59,27 @@ export function generateText(
  * @returns The generated object
  * @example See `fakeJsonShcemaOutput` in `@/fake-data/integrations/ai.ts`
  */
-export function generateObject<T>(
+export async function generateObject<T>(
   prompt: string,
   jsonSchemaInput: JSONSchema7,
   reasoningEffort: ReasoningEffort = "low",
   modelProvider: ModelProvider = "openai",
 ): Promise<T> {
-  if (showFakeData) {
-    return Promise.resolve({
-      email: "test@test.com",
-      interest: 3,
-      painPoints: ["Pain point 1", "Pain point 2"],
-      goals: ["Goal 1", "Goal 2"],
-      notes: "Suggested notes for closing the deal",
-    } as T);
+  const response = await axios.post("/api/ai/ollama", {
+    action: "generate",
+    model: "llama3.1:8b",
+    prompt: `${prompt}\n\nPlease respond with a JSON object matching this schema: ${JSON.stringify(jsonSchemaInput)}`,
+    options: {
+      format: "json",
+    },
+  });
+
+
+  try {
+    return JSON.parse(response.data.response) as T;
+  } catch (e) {
+    console.error("Failed to parse AI response as JSON:", response.data.response);
+    throw new Error("Invalid AI response format");
   }
-  return integrationsClient
-    .post<T>("/integrations/ai/generate-object", {
-      prompt,
-      jsonSchemaInput,
-      reasoningEffort,
-      modelProvider,
-    })
-    .then((res) => res.data);
 }
+

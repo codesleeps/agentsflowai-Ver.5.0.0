@@ -1,0 +1,200 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Service {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  tier        String   // 'basic' | 'growth' | 'enterprise'
+  price       Float
+  features    String[]
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("services")
+}
+
+model Lead {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  company      String?
+  phone        String?
+  status       String        @default("new") // 'new' | 'contacted' | 'qualified' | 'proposal' | 'won' | 'lost'
+  score        Int           @default(0)
+  source       String        @default("website") // 'website' | 'chat' | 'referral' | 'ads'
+  budget       String?       // 'low' | 'medium' | 'high' | 'enterprise'
+  timeline     String?       // 'immediate' | '1-3months' | '3-6months' | 'exploring'
+  interests    String[]
+  notes        String?
+  qualified_at DateTime?
+  created_at   DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
+  conversations Conversation[]
+  appointments  Appointment[]
+
+  @@map("leads")
+}
+
+model Conversation {
+  id         String    @id @default(uuid())
+  lead_id    String?
+  lead       Lead?     @relation(fields: [lead_id], references: [id])
+  status     String    @default("active") // 'active' | 'closed' | 'transferred'
+  channel    String    @default("chat")   // 'chat' | 'email' | 'phone'
+  started_at DateTime  @default(now())
+  ended_at   DateTime?
+  summary    String?
+  sentiment  String?   // 'positive' | 'neutral' | 'negative'
+  created_at DateTime  @default(now())
+  messages   Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id              String       @id @default(uuid())
+  conversation_id String
+  conversation    Conversation @relation(fields: [conversation_id], references: [id])
+  role            String       // 'user' | 'assistant' | 'system'
+  content         String
+  metadata        Json         @default("{}")
+  created_at      DateTime     @default(now())
+
+  @@map("messages")
+}
+
+model Appointment {
+  id               String   @id @default(uuid())
+  lead_id          String
+  lead             Lead     @relation(fields: [lead_id], references: [id])
+  title            String
+  description      String?
+  scheduled_at     DateTime
+  duration_minutes Int      @default(30)
+  status           String   @default("scheduled") // 'scheduled' | 'completed' | 'cancelled' | 'no-show'
+  meeting_link     String?
+  notes            String?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  @@map("appointments")
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(uuid())
+  event_type String
+  event_data Json
+  lead_id    String?
+  session_id String?
+  created_at DateTime @default(now())
+
+  @@map("analytics_events")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  members       Member[]
+  invitations   Invitation[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(uuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("accounts")
+}
+
+model Verification {
+  id         String    @id @default(uuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@map("verifications")
+}
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  logo        String?
+  createdAt   DateTime @default(now())
+  metadata    Json?
+  members     Member[]
+  invitations Invitation[]
+
+  @@map("organizations")
+}
+
+model Member {
+  id             String       @id @default(uuid())
+  role           String
+  createdAt      DateTime     @default(now())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("members")
+}
+
+model Invitation {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String
+  expiresAt      DateTime
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@map("invitations")
+}
+
