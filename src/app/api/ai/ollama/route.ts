@@ -57,6 +57,7 @@ async function handleGenerate(params: {
       options: {
         temperature: 0.7,
         top_p: 0.9,
+        num_ctx: 4096,
         ...options,
       },
     });
@@ -89,6 +90,7 @@ async function handleChat(params: {
       options: {
         temperature: 0.7,
         top_p: 0.9,
+        num_ctx: 4096,
         ...options,
       },
     });

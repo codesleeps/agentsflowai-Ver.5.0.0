@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
           temperature: 0.7,
           top_p: 0.9,
           num_predict: 2048,
+          num_ctx: 4096,
         },
       }),
       signal: controller.signal,
@@ -56,13 +57,17 @@ export async function POST(request: NextRequest) {
 
 
     if (!ollamaResponse.ok) {
-      // Fallback to built-in AI if Ollama is not available
-      console.log('Ollama not available, using fallback response');
+      const errorText = await ollamaResponse.text().catch(() => 'Unknown error');
+      console.error('Ollama API error:', ollamaResponse.status, errorText);
+
+      // Return fallback with more info
       return NextResponse.json({
         response: generateFallbackResponse(agent.id, message),
         model: 'fallback',
         agentId: agent.id,
         agentName: agent.name,
+        error: `Ollama error ${ollamaResponse.status}`,
+        note: 'AI is currently loading or unavailable. Using local fallback.',
       });
     }
 
