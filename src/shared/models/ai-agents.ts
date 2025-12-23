@@ -9,16 +9,18 @@ export interface AIAgent {
   systemPrompt: string;
   capabilities: string[];
   model: string;
+  provider: 'ollama' | 'google'; // Added provider
   isActive: boolean;
 }
 
-export type AIAgentCategory = 
+export type AIAgentCategory =
   | 'web-development'
   | 'analytics'
   | 'content-creation'
   | 'marketing'
   | 'social-media'
-  | 'seo';
+  | 'seo'
+  | 'fast-chat'; // Added fast-chat
 
 export interface AIAgentMessage {
   id: string;
@@ -144,12 +146,29 @@ export interface AnalyticsInsight {
 // Agent configurations
 export const AI_AGENTS: AIAgent[] = [
   {
+    id: 'fast-chat',
+    name: 'Fast Chat',
+    description: 'Quick responses using local AI',
+    icon: '⚡',
+    category: 'fast-chat',
+    model: 'ministral-3:3b',
+    provider: 'ollama',
+    isActive: true,
+    capabilities: [
+      'Quick answers',
+      'General assistance',
+      'Privacy focused'
+    ],
+    systemPrompt: 'You are a helpful and fast AI assistant. Keep responses concise.'
+  },
+  {
     id: 'web-dev-agent',
     name: 'Web Development Agent',
     description: 'Expert in web development, code generation, debugging, and optimization',
     icon: '💻',
     category: 'web-development',
-    model: 'mistral',
+    model: 'gemini-2.0-flash', // Upgraded to Gemini
+    provider: 'google',
     isActive: true,
     capabilities: [
       'Generate React/Next.js components',
@@ -174,7 +193,8 @@ Always provide code examples when relevant. Use TypeScript for type safety. Foll
     description: 'Data analysis, insights generation, and business intelligence',
     icon: '📊',
     category: 'analytics',
-    model: 'mistral',
+    model: 'gemini-2.0-flash',
+    provider: 'google',
     isActive: true,
     capabilities: [
       'Analyze business metrics',
@@ -192,7 +212,7 @@ Always provide code examples when relevant. Use TypeScript for type safety. Foll
 - Suggest data-driven optimizations
 - Explain complex data in simple terms
 
-Always provide specific, actionable recommendations. Use data to support your insights. Consider both short-term and long-term implications.`,
+Always provide specific, actionable recommendations. Use data to support your insights.`,
   },
   {
     id: 'content-agent',
@@ -200,7 +220,8 @@ Always provide specific, actionable recommendations. Use data to support your in
     description: 'Blog posts, articles, copy, and all types of written content',
     icon: '✍️',
     category: 'content-creation',
-    model: 'mistral',
+    model: 'gemini-2.0-flash',
+    provider: 'google',
     isActive: true,
     capabilities: [
       'Write blog posts and articles',
@@ -218,7 +239,7 @@ Always provide specific, actionable recommendations. Use data to support your in
 - Edit and improve existing content
 - Adapt content for different audiences and tones
 
-Always focus on clarity, engagement, and conversion. Use storytelling techniques. Optimize for readability while maintaining SEO best practices.`,
+Always focus on clarity, engagement, and conversion. Use storytelling techniques.`,
   },
   {
     id: 'marketing-agent',
@@ -226,7 +247,8 @@ Always focus on clarity, engagement, and conversion. Use storytelling techniques
     description: 'Campaign strategies, ad copy, funnels, and marketing automation',
     icon: '📣',
     category: 'marketing',
-    model: 'mistral',
+    model: 'gemini-2.0-flash',
+    provider: 'google',
     isActive: true,
     capabilities: [
       'Create marketing strategies',
@@ -242,9 +264,7 @@ Always focus on clarity, engagement, and conversion. Use storytelling techniques
 - Write high-converting ad copy
 - Plan and execute campaigns
 - Analyze competitor strategies
-- Optimize marketing ROI
-
-Always focus on measurable results and ROI. Consider the customer journey. Use proven marketing frameworks and adapt them to specific needs.`,
+- Optimize marketing ROI`,
   },
   {
     id: 'social-media-agent',
@@ -252,7 +272,8 @@ Always focus on measurable results and ROI. Consider the customer journey. Use p
     description: 'Social media content, scheduling, engagement strategies',
     icon: '📱',
     category: 'social-media',
-    model: 'mistral',
+    model: 'gemini-2.0-flash',
+    provider: 'google',
     isActive: true,
     capabilities: [
       'Create social media posts',
@@ -268,9 +289,8 @@ Always focus on measurable results and ROI. Consider the customer journey. Use p
 - Plan content calendars
 - Write platform-specific captions
 - Suggest engagement tactics
-- Analyze social media trends
 
-Always consider platform-specific best practices. Focus on engagement and community building. Use current trends and formats.`,
+Always consider platform-specific best practices. Focus on engagement.`,
   },
   {
     id: 'seo-agent',
@@ -278,7 +298,8 @@ Always consider platform-specific best practices. Focus on engagement and commun
     description: 'Search engine optimization, keywords, meta tags, and rankings',
     icon: '🔍',
     category: 'seo',
-    model: 'mistral',
+    model: 'gemini-2.0-flash',
+    provider: 'google',
     isActive: true,
     capabilities: [
       'Keyword research',
@@ -288,14 +309,13 @@ Always consider platform-specific best practices. Focus on engagement and commun
       'Technical SEO advice',
       'Competitor analysis',
     ],
-    systemPrompt: `You are an SEO expert with comprehensive knowledge of search engine algorithms, keyword research, and content optimization. You help users:
+    systemPrompt: `You are an SEO expert with comprehensive knowledge of search engine algorithms. You help users:
 - Conduct keyword research
 - Optimize on-page SEO elements
 - Generate meta tags and descriptions
 - Improve content for search rankings
 - Provide technical SEO recommendations
-- Analyze competitor SEO strategies
 
-Always follow current SEO best practices. Focus on user intent and search quality. Provide specific, actionable recommendations with expected impact.`,
+Always follow current SEO best practices. Focus on user intent.`,
   },
 ];

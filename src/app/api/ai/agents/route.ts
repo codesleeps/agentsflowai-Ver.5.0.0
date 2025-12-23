@@ -8,8 +8,9 @@ export async function GET() {
 
 // Generate response from a specific agent
 export async function POST(request: NextRequest) {
+  let body: any;
   try {
-    const body = await request.json();
+    body = await request.json();
     const { agentId, message, conversationHistory = [] } = body;
 
     // Find the agent
@@ -84,14 +85,15 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Agent API error:', error);
 
-    // Return a helpful fallback response
-    const body = await request.clone().json().catch(() => ({}));
-    const agent = AI_AGENTS.find((a) => a.id === body.agentId);
+    // Use the already parsed body if available
+    const agent = body
+      ? AI_AGENTS.find((a) => a.id === body.agentId)
+      : undefined;
 
     return NextResponse.json({
-      response: generateFallbackResponse(body.agentId || 'default', body.message || ''),
+      response: generateFallbackResponse(body?.agentId || 'default', body?.message || ''),
       model: 'fallback',
-      agentId: body.agentId,
+      agentId: body?.agentId,
       agentName: agent?.name || 'AI Agent',
       note: 'Using fallback mode. Connect Ollama for full AI capabilities.',
     });

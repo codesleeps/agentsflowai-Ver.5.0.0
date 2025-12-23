@@ -71,31 +71,33 @@ export default function ChatPage() {
       timestamp: new Date(),
     };
 
+    let newMessages = [...messages, userMessage];
+
     if (!customMessage) {
-      setMessages((prev) => [...prev, userMessage]);
+      setMessages(newMessages);
       setInput("");
     } else {
-      setMessages((prev) => [...prev, userMessage]);
+      setMessages(newMessages);
     }
 
     setIsLoading(true);
 
     try {
-      const conversationHistory = messages
-        .map((m) => `${m.role === "user" ? "Customer" : "Assistant"}: ${m.content}`)
-        .join("\n");
-
       const systemPrompt = getSystemPrompt(services);
-      const prompt = `${systemPrompt}
 
-Previous conversation:
-${conversationHistory}
+      // Convert UI messages to API messages
+      const apiMessages = newMessages.map(m => ({
+        role: m.role,
+        content: m.content
+      }));
 
-Customer: ${userMessage.content}
-
-Provide a helpful, concise response as the AI assistant:`;
-
-      const response = await generateText(prompt);
+      // Use the unified generateText with options
+      const response = await generateText({
+        messages: apiMessages,
+        system: systemPrompt,
+        model: 'gemini-2.0-flash', // Default to Gemini for standard chat
+        provider: 'google'
+      });
 
       const assistantMessage: ChatMessage = {
         role: "assistant",
@@ -106,11 +108,11 @@ Provide a helpful, concise response as the AI assistant:`;
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error: any) {
       console.error("Error generating response:", error);
+
+      // Fallback logic could be added here to try Ollama if Google fails
       const errorMessage: ChatMessage = {
         role: "assistant",
-        content: error.message?.includes("timed out")
-          ? "I'm sorry, the AI is taking a bit longer to respond (model loading). Please try again in a few seconds."
-          : "I apologize, but I encountered an issue processing your request. Please try again or contact our team directly for assistance.",
+        content: "I apologize, but I encountered an issue. Please check your AI configuration.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -258,7 +260,7 @@ Provide a helpful, concise response as the AI assistant:`;
                 disabled={isLoading}
                 className="flex-1"
               />
-              <Button onClick={handleSend} disabled={!input.trim() || isLoading}>
+              <Button onClick={() => handleSend()} disabled={!input.trim() || isLoading}>
                 {isLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
